@@ -31,8 +31,6 @@ const pathSchema = yup.object().shape({
 const getSchema = yup.object().shape({
   org_id: yup.string().uuid().required(),
   branches: yup.string().optional().nullable(),
-  from_date: yup.date().required(),
-  to_date: yup.date().required(),
   branch_mode: yup.string().oneOf(Object.values(ActiveBranchMode)).required()
 });
 
@@ -52,8 +50,19 @@ endpoint.handle.GET(getSchema, async (req, res) => {
     branch_mode
   } = req.payload;
 
-  const from_date = isoDateString(startOfDay(new Date(rawFromDate)));
-  const to_date = isoDateString(endOfDay(new Date(rawToDate)));
+  function parseDateOrDefault(dateStr, defaultDate) {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? defaultDate : d;
+  }
+
+  const now = new Date();
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  const fromDateParsed = parseDateOrDefault(rawFromDate, oneDayAgo);
+  const toDateParsed = parseDateOrDefault(rawToDate, now);
+
+  const from_date = isoDateString(startOfDay(fromDateParsed));
+  const to_date = isoDateString(endOfDay(toDateParsed));
   const [branchAndRepoFilters, unsyncedRepos] = await Promise.all([
     getBranchesAndRepoFilter({
       orgId: org_id,
